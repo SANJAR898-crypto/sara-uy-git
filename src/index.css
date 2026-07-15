@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/* =====================================================
+   SARA UYLAR — CENTRAL DESIGN TOKEN SYSTEM
+   ===================================================== */
+@theme {
+  /* ---- Brand Core (extracted from Sara Uylar logo) ---- */
+  --color-brand-50: #eaf6ff;
+  --color-brand-100: #cfeaff;
+  --color-brand-200: #a3d8ff;
+  --color-brand-300: #6cc0ff;
+  --color-brand-400: #34a3f5;
+  --color-brand-500: #0b84d6;
+  --color-brand-600: #0668ac;
+  --color-brand-700: #06538a;
+  --color-brand-800: #0a4570;
+  --color-brand-900: #0d3a5c;
+  --color-brand-950: #08233a;
+
+  --color-secondary: #063a5e;
+  --color-accent: #34c3ff;
+
+  /* ---- Surfaces ---- */
+  --color-bg: #f4f8fb;
+  --color-bg-alt: #eaf2f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7fafc;
+  --color-card: #ffffff;
+  --color-border: #e4ecf3;
+  --color-border-strong: #d2e0ea;
+
+  /* ---- Dark surfaces (for overlays / hero) ---- */
+  --color-ink-900: #071624;
+  --color-ink-800: #0d2436;
+  --color-ink-700: #123049;
+
+  /* ---- States ---- */
+  --color-hover: #eaf6ff;
+  --color-pressed: #d8ecfb;
+  --color-disabled: #c7d3dc;
+
+  /* ---- Semantic ---- */
+  --color-success: #16b978;
+  --color-success-bg: #e6faf1;
+  --color-warning: #f5a524;
+  --color-warning-bg: #fef6e6;
+  --color-error: #ef4444;
+  --color-error-bg: #fdeaea;
+
+  /* ---- Premium ---- */
+  --color-vip: #d4af37;
+  --color-vip-dark: #a3812a;
+  --color-vip-bg: #fbf3df;
+  --color-verified: #10b981;
+
+  /* ---- Typography ---- */
+  --font-display: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Radius ---- */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-2xl: 32px;
+  --radius-full: 999px;
+
+  /* ---- Shadows ---- */
+  --shadow-soft: 0 1px 2px rgba(13, 58, 92, 0.04), 0 8px 24px -12px rgba(13, 58, 92, 0.12);
+  --shadow-card: 0 2px 8px rgba(13, 58, 92, 0.06), 0 12px 32px -16px rgba(13, 58, 92, 0.16);
+  --shadow-lift: 0 8px 16px rgba(13, 58, 92, 0.08), 0 24px 48px -20px rgba(13, 58, 92, 0.28);
+  --shadow-vip: 0 4px 20px -4px rgba(212, 175, 55, 0.45);
+  --shadow-brand: 0 8px 24px -8px rgba(11, 132, 214, 0.45);
+
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 2.2s ease-in-out infinite;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-ink-900);
+    overscroll-behavior-y: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-dark {
+    background: rgba(7, 22, 36, 0.55);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .text-display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+  .text-heading { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+
+  .shimmer-bg {
+    background: linear-gradient(90deg, #eef3f7 25%, #f8fbfd 37%, #eef3f7 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
