@@ -1,19 +1,29 @@
-import React from 'react';
-import SaraUylarLogo from '../SaraUylarLogo';
+"use client";
 
-export default function Header() {
+import Link from "next/link";
+import { Bell, Search } from "lucide-react";
+import Logo from "@/components/ui/Logo";
+import { useTelegram } from "@/contexts/TelegramProvider";
+
+export function Header() {
+  const { user } = useTelegram();
+
   return (
-    <header className="sticky top-0 z-30 px-4 py-3 bg-white border-b border-[#E2EAF8] flex items-center justify-between shrink-0 shadow-sm">
-      <div className="flex items-center gap-2">
-        <SaraUylarLogo size="sm" variant="icon" />
-        <div>
-          <h1 className="text-xs font-extrabold tracking-tight text-[#0082D5] font-display uppercase">SARA UYLAR</h1>
-          <span className="text-[8px] text-slate-400 font-bold block -mt-1 tracking-wide">Telegram Real Estate</span>
+    <header className="safe-top sticky top-0 z-40 glass px-4 py-3">
+      <div className="flex items-center justify-between">
+        <Logo size={38} />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/search"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft active:scale-90"
+          >
+            <Search size={18} />
+          </Link>
+          <button className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft active:scale-90">
+            <Bell size={18} />
+            {user && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500" />}
+          </button>
         </div>
-      </div>
-      <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-full py-0.5 px-2">
-        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-        <span className="text-[8px] font-extrabold text-blue-600 uppercase tracking-widest">Mini App</span>
       </div>
     </header>
   );

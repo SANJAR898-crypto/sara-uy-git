@@ -1,64 +1,75 @@
-import React from 'react';
-import { Compass, Search as SearchIcon, PlusCircle, Heart as HeartIcon, User as UserIcon } from 'lucide-react';
-import { motion } from 'motion/react';
+"use client";
 
-interface BottomNavProps {
-  activeTab: 'home' | 'search' | 'favorites' | 'add_listing' | 'my_listings' | 'profile';
-  onTabChange: (tab: 'home' | 'search' | 'favorites' | 'add_listing' | 'my_listings' | 'profile') => void;
-  onProtectedTabClick: (actionName: string, successCallback: () => void) => void;
-  setSelectedListing: (val: any) => void;
-}
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Heart, Home, PlusCircle, Search, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { useTelegram } from "@/contexts/TelegramProvider";
+import { cn } from "@/lib/cn";
 
-export default function BottomNav({
-  activeTab,
-  onTabChange,
-  onProtectedTabClick,
-  setSelectedListing
-}: BottomNavProps) {
-  const tabs = [
-    { id: 'home', icon: Compass, label: 'Asosiy' },
-    { id: 'search', icon: SearchIcon, label: 'Qidiruv' },
-    { id: 'add_listing', icon: PlusCircle, label: "E'lon" },
-    { id: 'favorites', icon: HeartIcon, label: 'Saralangan' },
-    { id: 'profile', icon: UserIcon, label: 'Profil' }
-  ];
+const TABS = [
+  { href: "/", label: "Bosh sahifa", icon: Home },
+  { href: "/search", label: "Qidiruv", icon: Search },
+  { href: "/seller/new", label: "E'lon", icon: PlusCircle, isAction: true },
+  { href: "/favorites", label: "Sevimlilar", icon: Heart },
+  { href: "/profile", label: "Profil", icon: User },
+];
+
+export function BottomNav() {
+  const pathname = usePathname();
+  const { haptic } = useTelegram();
 
   return (
-    <div className="fixed bottom-5 inset-x-4 max-w-md mx-auto bg-white/90 backdrop-blur-xl border border-slate-200/50 px-4 py-2.5 flex justify-between items-center z-40 shadow-[0_12px_40px_rgba(0,0,0,0.08)] rounded-[20px] font-sans">
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const isSelected = activeTab === tab.id || (tab.id === 'profile' && activeTab === 'my_listings');
-        
-        return (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setSelectedListing(null);
-              if (tab.id === 'add_listing') {
-                onProtectedTabClick("E'lon berish", () => {
-                  onTabChange('add_listing');
-                });
-              } else {
-                onTabChange(tab.id as any);
-              }
-            }}
-            className="flex flex-col items-center gap-1.5 relative py-1 focus:outline-none shrink-0 cursor-pointer"
-            style={{ width: '56px' }}
-          >
-            <Icon className={`w-5 h-5 transition-all duration-300 ${isSelected ? 'text-slate-900 scale-105' : 'text-slate-400 hover:text-slate-600'}`} />
-            <span className={`text-[8px] font-bold tracking-wider transition-all uppercase leading-none ${isSelected ? 'text-slate-900' : 'text-slate-400'}`}>
-              {tab.label}
-            </span>
-            {isSelected && (
-              <motion.div 
-                layoutId="activeIndicator"
-                className="absolute -bottom-1.5 w-4 h-[3px] bg-slate-900 rounded-full"
-                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+      <div className="glass mx-auto flex max-w-md items-center justify-between rounded-3xl px-2 py-2 shadow-elevated">
+        {TABS.map((tab) => {
+          const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
+          const Icon = tab.icon;
+
+          if (tab.isAction) {
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                onClick={() => haptic("medium")}
+                className="relative -mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-lg shadow-brand-500/40 transition-transform active:scale-90"
+              >
+                <Icon size={26} strokeWidth={2.2} />
+              </Link>
+            );
+          }
+
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              onClick={() => haptic("light")}
+              className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 transition-colors active:scale-95"
+            >
+              {active && (
+                <motion.span
+                  layoutId="nav-active"
+                  className="absolute inset-0 rounded-2xl bg-brand-50"
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                />
+              )}
+              <Icon
+                size={21}
+                strokeWidth={2.2}
+                className={cn("relative z-10", active ? "text-brand-600" : "text-ink-400")}
               />
-            )}
-          </button>
-        );
-      })}
-    </div>
+              <span
+                className={cn(
+                  "relative z-10 text-[10px] font-semibold",
+                  active ? "text-brand-600" : "text-ink-400",
+                )}
+              >
+                {tab.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

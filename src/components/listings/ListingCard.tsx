@@ -1,145 +1,152 @@
-import React, { useState } from 'react';
-import { Heart, MapPin, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { Listing, District } from '../../types';
-import { getDistrictName } from '../../utils/helpers';
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Heart, MapPin, BedDouble, Ruler } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { ListingItem } from "@/types/api";
+import { formatArea, formatPrice, DEAL_TYPE_LABELS, timeAgo } from "@/lib/format";
+import { apiFetch } from "@/lib/api-client";
+import { useTelegram } from "@/contexts/TelegramProvider";
+import { useToastStore } from "@/store/useToastStore";
+import { cn } from "@/lib/cn";
+
+const PLAN_BADGES: Record<string, { label: string; className: string }> = {
+  vip: { label: "🥇 VIP", className: "bg-gold-500 text-white" },
+  premium: { label: "🥈 Premium", className: "bg-brand-500 text-white" },
+  story: { label: "🎬 Story", className: "bg-fuchsia-500 text-white" },
+};
 
 interface ListingCardProps {
-  key?: string | number;
-  listing: Listing;
-  favorites: string[];
-  onToggleFavorite: (id: string) => void;
-  onSelectListing: (listing: Listing) => void;
-  districts: District[];
-  isVip?: boolean;
-  isPremium?: boolean;
+  listing: ListingItem;
+  initialFavorited?: boolean;
+  priority?: boolean;
 }
 
-export default function ListingCard({
-  listing,
-  favorites,
-  onToggleFavorite,
-  onSelectListing,
-  districts,
-  isVip = false,
-  isPremium = false
-}: ListingCardProps) {
-  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+export function ListingCard({ listing, initialFavorited = false, priority = false }: ListingCardProps) {
+  const [favorited, setFavorited] = useState(initialFavorited);
+  const [burst, setBurst] = useState(false);
+  const { user, haptic } = useTelegram();
+  const toast = useToastStore((s) => s.show);
+  const queryClient = useQueryClient();
 
-  const handlePrevImage = (e: React.MouseEvent) => {
+  const toggleFavorite = useMutation({
+    mutationFn: async () => {
+      if (favorited) {
+        await apiFetch(`/api/listings/${listing.id}/favorite`, { method: "DELETE" });
+      } else {
+        await apiFetch(`/api/listings/${listing.id}/favorite`, { method: "POST" });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    },
+  });
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (listing.imageUrls.length > 1) {
-      setCurrentImgIdx(prev => (prev - 1 + listing.imageUrls.length) % listing.imageUrls.length);
+    if (!user) {
+      toast("Sevimlilarga qo'shish uchun Telegram orqali kiring", "info");
+      return;
     }
+    haptic("light");
+    const next = !favorited;
+    setFavorited(next);
+    if (next) {
+      setBurst(true);
+      setTimeout(() => setBurst(false), 500);
+    }
+    toggleFavorite.mutate();
   };
 
-  const handleNextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (listing.imageUrls.length > 1) {
-      setCurrentImgIdx(prev => (prev + 1) % listing.imageUrls.length);
-    }
-  };
-
-  const isFavorited = favorites.includes(listing.id);
+  const badge = PLAN_BADGES[listing.plan];
+  const cover = listing.images[0];
 
   return (
-    <div 
-      onClick={() => onSelectListing(listing)}
-      className={`bg-white rounded-2xl border overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] group font-sans relative flex flex-col gap-3 pb-3.5 border-slate-100`}
-    >
-      {/* Image Container */}
-      <div className="w-full aspect-[16/10] relative overflow-hidden bg-slate-50">
-        <img 
-          src={listing.imageUrls[currentImgIdx] || listing.imageUrls[0]} 
-          alt={listing.title} 
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          referrerPolicy="no-referrer"
-        />
-        
-        {/* Navigation arrows (only visible on hover or if there are multiple images) */}
-        {listing.imageUrls.length > 1 && (
-          <div className="absolute inset-x-2.5 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <button 
-              onClick={handlePrevImage}
-              className="w-7 h-7 bg-white/90 border border-slate-200/30 text-slate-800 rounded-full flex items-center justify-center hover:bg-white shadow-md cursor-pointer pointer-events-auto transition active:scale-90"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={handleNextImage}
-              className="w-7 h-7 bg-white/90 border border-slate-200/30 text-slate-800 rounded-full flex items-center justify-center hover:bg-white shadow-md cursor-pointer pointer-events-auto transition active:scale-90"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+    <Link href={`/listing/${listing.id}`} className="block">
+      <motion.article
+        initial={{ opacity: 0, y: 14 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-40px" }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="group overflow-hidden rounded-2xl bg-white shadow-soft ring-1 ring-black/[0.03] transition-shadow hover:shadow-elevated"
+      >
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink-100">
+          {cover ? (
+            <Image
+              src={cover}
+              alt={listing.title}
+              fill
+              sizes="(max-width: 768px) 50vw, 300px"
+              priority={priority}
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-ink-200">
+              <BedDouble size={32} />
+            </div>
+          )}
+
+          <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+            {badge && (
+              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold shadow", badge.className)}>
+                {badge.label}
+              </span>
+            )}
           </div>
-        )}
 
-        {/* Status indicator / Deal Type Badge */}
-        <div className="absolute top-3.5 left-3.5 z-10 flex gap-1.5">
-          <span className="text-[9px] font-bold tracking-wider uppercase px-2.5 py-1 bg-slate-900/80 backdrop-blur-xs text-white rounded-md shadow-sm">
-            {listing.dealType === 'sale' ? 'Sotiladi' : 'Ijara'}
-          </span>
-          {isVip && (
-            <span className="text-[9px] font-bold tracking-wider uppercase px-2.5 py-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 rounded-md shadow-sm">
-              👑 VIP
-            </span>
-          )}
-          {isPremium && (
-            <span className="text-[9px] font-bold tracking-wider uppercase px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md shadow-sm">
-              ⚡ Premium
-            </span>
-          )}
-        </div>
-
-        {/* Favorite Heart Trigger */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(listing.id); }}
-          className="absolute right-3.5 top-3.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs hover:bg-white border border-slate-200/30 flex items-center justify-center text-slate-600 transition shadow-md cursor-pointer z-10 active:scale-90"
-        >
-          <Heart className={`w-4 h-4 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
-        </button>
-
-        {/* Dot Pagination for images inside card */}
-        {listing.imageUrls.length > 1 && (
-          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-            {listing.imageUrls.map((_, idx) => (
-              <span 
-                key={idx}
-                className={`h-1 rounded-full transition-all duration-300 ${currentImgIdx === idx ? 'bg-white w-3' : 'bg-white/50 w-1'}`}
+          <button
+            onClick={handleFavorite}
+            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur transition-transform active:scale-90"
+            aria-label="Sevimlilarga qo'shish"
+          >
+            <Heart
+              size={16}
+              className={cn(
+                "transition-colors",
+                favorited ? "fill-rose-500 text-rose-500" : "text-ink-600",
+              )}
+            />
+            {burst && (
+              <motion.span
+                initial={{ scale: 0, opacity: 0.8 }}
+                animate={{ scale: 2.4, opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="pointer-events-none absolute inline-block h-4 w-4 rounded-full bg-rose-400"
               />
-            ))}
-          </div>
-        )}
-      </div>
+            )}
+          </button>
 
-      {/* Info details */}
-      <div className="px-3.5 space-y-1">
-        <div className="flex justify-between items-start gap-2">
-          <h4 className="font-bold text-sm text-slate-900 line-clamp-1 group-hover:text-blue-600 transition duration-300 tracking-tight flex-1">
-            {listing.title}
-          </h4>
-          <div className="flex items-center gap-0.5 text-xs font-semibold text-slate-700 shrink-0">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span>{listing.rating || '4.8'}</span>
+          <div className="absolute bottom-2 left-2 rounded-lg bg-black/55 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+            {DEAL_TYPE_LABELS[listing.dealType] ?? listing.dealType}
           </div>
         </div>
 
-        <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          {getDistrictName(listing.districtId, districts)}
-        </p>
+        <div className="space-y-1.5 p-3">
+          <p className="truncate text-[15px] font-bold text-ink-900">{formatPrice(listing.price, listing.currency)}</p>
+          <p className="line-clamp-1 text-sm text-ink-600">{listing.title}</p>
 
-        <div className="text-xs text-slate-500 font-medium pt-0.5">
-          📐 {listing.area} m² • 🏢 {listing.rooms} xona
-        </div>
+          <div className="flex items-center gap-3 pt-0.5 text-xs text-ink-400">
+            <span className="flex items-center gap-1">
+              <BedDouble size={13} /> {listing.rooms} xona
+            </span>
+            <span className="flex items-center gap-1">
+              <Ruler size={13} /> {formatArea(listing.area)}
+            </span>
+          </div>
 
-        <div className="pt-1.5 flex justify-between items-center border-t border-slate-100 mt-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Narxi</span>
-          <span className="font-black text-sm tracking-tight text-slate-900">
-            ${listing.price.toLocaleString()}
-            {listing.dealType === 'rent' && <span className="text-[10px] text-slate-400 font-normal"> /oy</span>}
-          </span>
+          <div className="flex items-center gap-1 truncate pt-0.5 text-xs text-ink-400">
+            <MapPin size={12} className="shrink-0" />
+            <span className="truncate">{listing.address}</span>
+          </div>
+
+          <p className="pt-1 text-[11px] text-ink-400">{timeAgo(listing.createdAt)}</p>
         </div>
-      </div>
-    </div>
+      </motion.article>
+    </Link>
   );
 }

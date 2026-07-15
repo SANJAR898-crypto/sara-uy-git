@@ -1,323 +1,133 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Phone, Compass } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+"use client";
 
-interface StorySlide {
-  id: string;
-  title: string;
-  price?: string;
-  imageUrl: string;
-  desc?: string;
-  listingId?: string;
-  ownerPhone?: string;
-}
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
+import type { StoryItem } from "@/types/api";
+import { apiFetch } from "@/lib/api-client";
 
 interface StoryViewerProps {
-  isOpen: boolean;
+  stories: StoryItem[];
+  initialIndex: number;
   onClose: () => void;
-  category: 'villas' | 'apartments' | 'cheap' | 'tips' | null;
-  onCategoryChange: (category: 'villas' | 'apartments' | 'cheap' | 'tips' | null) => void;
-  customStories?: Record<string, StorySlide[]>;
-  defaultStories: Record<string, StorySlide[]>;
 }
 
-export default function StoryViewer({
-  isOpen,
-  onClose,
-  category,
-  onCategoryChange,
-  customStories = {},
-  defaultStories
-}: StoryViewerProps) {
-  const [activeSlideIdx, setActiveSlideIdx] = useState(0);
-  const [storyProgress, setStoryProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isLongPress, setIsLongPress] = useState(false);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+export function StoryViewer({ stories, initialIndex, onClose }: StoryViewerProps) {
+  const [storyIndex, setStoryIndex] = useState(initialIndex);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const rafRef = useRef<number | null>(null);
 
-  const longPressTimerRef = useRef<any>(null);
+  const story = stories[storyIndex];
+  const slide = story?.slides[slideIndex];
 
-  const getCombinedSlides = (cat: 'villas' | 'apartments' | 'cheap' | 'tips' | null): StorySlide[] => {
-    if (!cat) return [];
-    const defaults = defaultStories[cat] || [];
-    const customs = customStories[cat] || [];
-    return [...defaults, ...customs];
-  };
-
-  const currentSlides = getCombinedSlides(category);
-
-  // Reset slide index on category change
   useEffect(() => {
-    setActiveSlideIdx(0);
-    setStoryProgress(0);
-  }, [category]);
+    if (!story) return;
+    apiFetch(`/api/stories/${story.id}/view`, { method: "POST" }).catch(() => undefined);
+  }, [story?.id]);
 
-  const handleNextSlide = () => {
-    if (!category) return;
-    const slides = getCombinedSlides(category);
-    if (activeSlideIdx < slides.length - 1) {
-      setActiveSlideIdx(prev => prev + 1);
-      setStoryProgress(0);
-    } else {
-      // Auto-advance to the next category
-      const categories: ('villas' | 'apartments' | 'cheap' | 'tips')[] = ['villas', 'apartments', 'cheap', 'tips'];
-      const currentCatIdx = categories.indexOf(category);
-      let nextCatIdx = currentCatIdx + 1;
-      
-      while (nextCatIdx < categories.length) {
-        const nextCat = categories[nextCatIdx];
-        if (getCombinedSlides(nextCat).length > 0) {
-          onCategoryChange(nextCat);
-          setActiveSlideIdx(0);
-          setStoryProgress(0);
-          return;
-        }
-        nextCatIdx++;
-      }
-      
-      onClose();
-    }
-  };
+  useEffect(() => {
+    if (!slide || paused) return;
+    setProgress(0);
+    const duration = slide.durationMs || 5000;
+    const start = performance.now();
 
-  const handlePrevSlide = () => {
-    if (!category) return;
-    if (activeSlideIdx > 0) {
-      setActiveSlideIdx(prev => prev - 1);
-      setStoryProgress(0);
-    } else {
-      // Go back to previous category's last slide
-      const categories: ('villas' | 'apartments' | 'cheap' | 'tips')[] = ['villas', 'apartments', 'cheap', 'tips'];
-      const currentCatIdx = categories.indexOf(category);
-      let prevCatIdx = currentCatIdx - 1;
-      
-      while (prevCatIdx >= 0) {
-        const prevCat = categories[prevCatIdx];
-        const prevSlides = getCombinedSlides(prevCat);
-        if (prevSlides.length > 0) {
-          onCategoryChange(prevCat);
-          setActiveSlideIdx(prevSlides.length - 1);
-          setStoryProgress(0);
-          return;
-        }
-        prevCatIdx--;
-      }
-      
-      onClose();
-    }
-  };
-
-  // Touch handlers for mobile swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-    setTouchStartY(e.touches[0].clientY);
-    setIsPaused(true);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    setIsPaused(false);
-    if (touchStartX === null || touchStartY === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diffX = touchStartX - touchEndX;
-    const diffY = touchStartY - touchEndY;
-
-    if (diffY < -60 && Math.abs(diffY) > Math.abs(diffX)) {
-      onClose();
-    } else if (Math.abs(diffX) > 60) {
-      if (diffX > 60) {
-        handleNextSlide();
-      } else if (diffX < -60) {
-        handlePrevSlide();
-      }
-    }
-    setTouchStartX(null);
-    setTouchStartY(null);
-  };
-
-  const handleZonePointerDown = () => {
-    setIsPaused(true);
-    setIsLongPress(false);
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    longPressTimerRef.current = setTimeout(() => {
-      setIsLongPress(true);
-    }, 200);
-  };
-
-  const handleZonePointerUp = (isRight: boolean) => {
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    setIsPaused(false);
-    if (!isLongPress) {
-      if (isRight) {
-        handleNextSlide();
+    function tick(now: number) {
+      const elapsed = now - start;
+      const pct = Math.min(100, (elapsed / duration) * 100);
+      setProgress(pct);
+      if (pct >= 100) {
+        goNext();
       } else {
-        handlePrevSlide();
+        rafRef.current = requestAnimationFrame(tick);
       }
     }
-  };
 
-  // Preloading
-  useEffect(() => {
-    if (isOpen && category) {
-      const slides = getCombinedSlides(category);
-      const nextIdx = activeSlideIdx + 1;
-      if (nextIdx < slides.length) {
-        const nextSlide = slides[nextIdx];
-        if (nextSlide?.imageUrl) {
-          const img = new Image();
-          img.src = nextSlide.imageUrl;
-        }
-      }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyIndex, slideIndex, paused]);
+
+  function goNext() {
+    if (!story) return;
+    if (slideIndex < story.slides.length - 1) {
+      setSlideIndex((i) => i + 1);
+    } else if (storyIndex < stories.length - 1) {
+      setStoryIndex((i) => i + 1);
+      setSlideIndex(0);
+    } else {
+      onClose();
     }
-  }, [isOpen, category, activeSlideIdx]);
+  }
 
-  // Timer effect
-  useEffect(() => {
-    if (!isOpen || !category || currentSlides.length === 0) {
-      setStoryProgress(0);
-      return;
+  function goPrev() {
+    if (slideIndex > 0) {
+      setSlideIndex((i) => i - 1);
+    } else if (storyIndex > 0) {
+      setStoryIndex((i) => i - 1);
+      setSlideIndex(stories[storyIndex - 1].slides.length - 1);
     }
+  }
 
-    if (isPaused) return;
-
-    const intervalTime = 50;
-    const slideDuration = 5000;
-    const increment = (intervalTime / slideDuration) * 100;
-
-    const timer = setInterval(() => {
-      setStoryProgress(prev => {
-        if (prev >= 100) {
-          setTimeout(() => handleNextSlide(), 0);
-          return 0;
-        }
-        return prev + increment;
-      });
-    }, intervalTime);
-
-    return () => clearInterval(timer);
-  }, [isOpen, category, activeSlideIdx, isPaused]);
+  if (!story || !slide) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && category && currentSlides.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          className="fixed inset-0 bg-slate-950 z-50 flex flex-col justify-between font-sans text-white select-none overflow-hidden touch-none"
-        >
-          {/* Top Bar Progress */}
-          <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-30 space-y-3.5 pointer-events-none">
-            <div className="flex gap-1.5 px-0.5">
-              {currentSlides.map((_, idx) => {
-                let fillWidth = "0%";
-                if (idx < activeSlideIdx) fillWidth = "100%";
-                else if (idx === activeSlideIdx) fillWidth = `${storyProgress}%`;
-                
-                return (
-                  <div key={idx} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden backdrop-blur-xs">
-                    <div 
-                      className="h-full bg-white transition-all duration-75 rounded-full shadow-xs"
-                      style={{ width: fillWidth }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Logo / Header */}
-            <div className="flex justify-between items-center pointer-events-auto">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-amber-400 text-lg border border-white/20 backdrop-blur-md shadow-inner">
-                  {category === 'villas' ? '🏡' : category === 'apartments' ? '🏢' : category === 'cheap' ? '💰' : '💡'}
-                </div>
-                <div>
-                  <h4 className="text-[11px] font-black tracking-wider uppercase text-white drop-shadow-xs">
-                    {category === 'villas' ? 'Dabdabali Villalar' : category === 'apartments' ? 'Shinam Kvartiralar' : category === 'cheap' ? 'Hamyonbop uylar' : 'Foydali Maslahatlar'}
-                  </h4>
-                  <span className="text-[7.5px] text-white/70 font-bold uppercase tracking-widest block mt-0.5">SARA UYLAR STORIES</span>
-                </div>
-              </div>
-              
-              <button 
-                onClick={onClose}
-                className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white border border-white/10 cursor-pointer backdrop-blur-md transition-all active:scale-90"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Tap Zones */}
-          <div className="absolute inset-0 flex z-20">
-            <div 
-              onPointerDown={handleZonePointerDown}
-              onPointerUp={() => handleZonePointerUp(false)}
-              onPointerLeave={() => setIsPaused(false)}
-              className="w-1/4 h-full cursor-pointer" 
-            />
-            <div 
-              onPointerDown={handleZonePointerDown}
-              onPointerUp={() => handleZonePointerUp(true)}
-              onPointerLeave={() => setIsPaused(false)}
-              className="w-3/4 h-full cursor-pointer" 
-            />
-          </div>
-
-          {/* Image slide */}
-          <div className="w-full h-full relative flex items-center justify-center bg-slate-950">
-            <AnimatePresence mode="wait">
-              {currentSlides[activeSlideIdx] && (
-                <motion.img 
-                  key={`${category}-${activeSlideIdx}`}
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                  src={currentSlides[activeSlideIdx].imageUrl} 
-                  alt="" 
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover select-none pointer-events-none"
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[150] flex items-center justify-center bg-black safe-top safe-bottom"
+      >
+        <div className="relative h-full w-full max-w-md">
+          <div className="absolute inset-x-2 top-3 z-20 flex gap-1">
+            {story.slides.map((s, i) => (
+              <div key={s.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
+                <div
+                  className="h-full bg-white transition-[width]"
+                  style={{
+                    width: i < slideIndex ? "100%" : i === slideIndex ? `${progress}%` : "0%",
+                  }}
                 />
-              )}
-            </AnimatePresence>
-            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none z-10" />
+              </div>
+            ))}
           </div>
 
-          {/* Bottom sheet */}
-          {currentSlides[activeSlideIdx] && (
-            <div className="absolute bottom-0 inset-x-0 p-5 pb-9 space-y-4.5 z-30 text-left bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent">
-              <div className="space-y-2">
-                {currentSlides[activeSlideIdx].price && (
-                  <span className="inline-block bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 text-[9px] font-black px-3 py-1 rounded-full shadow-lg tracking-wide uppercase font-mono">
-                    {currentSlides[activeSlideIdx].price}
-                  </span>
-                )}
-                <h3 className="text-base font-black text-white leading-snug tracking-tight drop-shadow-md">
-                  {currentSlides[activeSlideIdx].title}
-                </h3>
-                <p className="text-[11px] text-slate-200/90 leading-relaxed font-medium drop-shadow-sm">
-                  {currentSlides[activeSlideIdx].desc}
-                </p>
-              </div>
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-8 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white"
+          >
+            <X size={18} />
+          </button>
 
-              {currentSlides[activeSlideIdx].ownerPhone && (
-                <div className="pt-1.5 pointer-events-auto">
-                  <a
-                    href={`tel:${currentSlides[activeSlideIdx].ownerPhone}`}
-                    className="w-full py-3.5 bg-gradient-to-r from-[#0082D5] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition active:scale-98"
-                  >
-                    <Phone className="w-4 h-4 fill-white" />
-                    Bog'lanish: {currentSlides[activeSlideIdx].ownerPhone}
-                  </a>
-                </div>
+          <motion.div
+            key={slide.id}
+            initial={{ opacity: 0.4 }}
+            animate={{ opacity: 1 }}
+            className="relative h-full w-full"
+            onPointerDown={() => setPaused(true)}
+            onPointerUp={() => setPaused(false)}
+          >
+            <Image src={slide.imageUrl} alt={slide.title} fill className="object-cover" priority />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-5 pb-10">
+              <h3 className="text-lg font-bold text-white">{slide.title}</h3>
+              {slide.description && <p className="mt-1 text-sm text-white/80">{slide.description}</p>}
+              {slide.linkText && (
+                <button className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-bold text-ink-900">
+                  {slide.linkText}
+                </button>
               )}
             </div>
-          )}
-        </motion.div>
-      )}
+          </motion.div>
+
+          <button onClick={goPrev} className="absolute left-0 top-0 h-full w-1/3" aria-label="Oldingi" />
+          <button onClick={goNext} className="absolute right-0 top-0 h-full w-1/3" aria-label="Keyingi" />
+        </div>
+      </motion.div>
     </AnimatePresence>
   );
 }
