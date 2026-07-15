@@ -1,0 +1,6 @@
+{
+  "name": "Sara Uylar",
+  "description": "Sara Uylar - Premium Telegram Mini App and Real Estate Marketplace for Uzbekistan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
