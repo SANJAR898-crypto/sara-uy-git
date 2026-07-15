@@ -1,8 +1,10 @@
+"use client";
+
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, Info, Loader2, SearchX, X } from "lucide-react";
 import { type ButtonHTMLAttributes, type ReactNode, useEffect } from "react";
-import { cn } from "../utils/cn";
-import { useToast, type ToastItem } from "../context";
+import { cn } from "@/lib/cn";
+import { useToast, type ToastItem } from "@/components/providers";
 
 /* ============== Button ============== */
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

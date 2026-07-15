@@ -1,13 +1,17 @@
+"use client";
+
 import { motion } from "framer-motion";
 import { Bell, ChevronDown, Heart, Home, Search, User } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { cn } from "../utils/cn";
-import type { ScreenId } from "../types-nav";
+import { cn } from "@/lib/cn";
 
 /* ============== Splash Screen ============== */
 export function SplashScreen({ onFinish }: { onFinish: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onFinish, 2400);
+    const t = setTimeout(onFinish, 1600);
     return () => clearTimeout(t);
   }, [onFinish]);
 
@@ -16,7 +20,6 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
       className="fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#08233a] via-[#0b3a5c] to-brand-500"
       exit={{ opacity: 0, transition: { duration: 0.5 } }}
     >
-      {/* ambient glow */}
       <motion.div
         className="absolute h-[420px] w-[420px] rounded-full bg-brand-400/30 blur-[100px]"
         animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
@@ -35,7 +38,7 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
           transition={{ duration: 1.4, repeat: Infinity, repeatType: "reverse" }}
           className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/10 p-3 backdrop-blur-md ring-1 ring-white/30"
         >
-          <img src="/images/logo.png" alt="Sara Uylar" className="h-full w-full rounded-[20px] object-cover" />
+          <Image src="/images/logo.png" alt="Sara Uylar" width={96} height={96} className="h-full w-full rounded-[20px] object-cover" priority />
         </motion.div>
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
@@ -51,7 +54,7 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
           transition={{ delay: 0.55, duration: 0.6 }}
           className="mt-1.5 text-[13px] font-medium tracking-[0.2em] text-white/60"
         >
-          PREMIUM KO'CHMAS MULK
+          PREMIUM KO&apos;CHMAS MULK
         </motion.p>
       </motion.div>
 
@@ -76,12 +79,10 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
 
 /* ============== Top Navigation ============== */
 export function TopNav({
-  onNotifications,
   unreadCount,
   city,
   onCityClick,
 }: {
-  onNotifications: () => void;
   unreadCount: number;
   city: string;
   onCityClick: () => void;
@@ -91,7 +92,7 @@ export function TopNav({
       <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-[12px] shadow-[var(--shadow-brand)]">
-            <img src="/images/logo.png" className="h-full w-full object-cover" alt="logo" />
+            <Image src="/images/logo.png" width={36} height={36} className="h-full w-full object-cover" alt="logo" />
           </div>
           <button onClick={onCityClick} className="flex items-center gap-0.5 active:opacity-60">
             <div className="text-left leading-tight">
@@ -102,48 +103,46 @@ export function TopNav({
             </div>
           </button>
         </div>
-        <motion.button
-          whileTap={{ scale: 0.85 }}
-          onClick={onNotifications}
-          className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.04] active:bg-black/[0.08]"
-        >
-          <Bell className="h-[19px] w-[19px] text-ink-900" />
-          {unreadCount > 0 && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[9px] font-bold text-white ring-2 ring-white"
-            >
-              {unreadCount}
-            </motion.span>
-          )}
-        </motion.button>
+        <Link href="/notifications">
+          <motion.span
+            whileTap={{ scale: 0.85 }}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.04] active:bg-black/[0.08]"
+          >
+            <Bell className="h-[19px] w-[19px] text-ink-900" />
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[9px] font-bold text-white ring-2 ring-white"
+              >
+                {unreadCount}
+              </motion.span>
+            )}
+          </motion.span>
+        </Link>
       </div>
     </div>
   );
 }
 
 /* ============== Bottom Navigation ============== */
-const tabs: { id: ScreenId; label: string; icon: typeof Home }[] = [
-  { id: "home", label: "Bosh sahifa", icon: Home },
-  { id: "search", label: "Qidiruv", icon: Search },
-  { id: "favorites", label: "Sevimli", icon: Heart },
-  { id: "profile", label: "Profil", icon: User },
+const tabs = [
+  { href: "/", label: "Bosh sahifa", icon: Home },
+  { href: "/search", label: "Qidiruv", icon: Search },
+  { href: "/favorites", label: "Sevimli", icon: Heart },
+  { href: "/profile", label: "Profil", icon: User },
 ];
 
-export function BottomNav({ active, onChange }: { active: ScreenId; onChange: (s: ScreenId) => void }) {
+export function BottomNav() {
+  const pathname = usePathname();
   return (
     <div className="safe-bottom fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-3 pt-1">
       <div className="glass flex w-full max-w-lg items-center justify-between rounded-[26px] border border-white/60 px-2 py-2 shadow-[var(--shadow-lift)]">
         {tabs.map((tab) => {
-          const isActive = active === tab.id;
+          const isActive = pathname === tab.href;
           const Icon = tab.icon;
           return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id)}
-              className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-2"
-            >
+            <Link key={tab.href} href={tab.href} className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-2">
               {isActive && (
                 <motion.div
                   layoutId="nav-pill"
@@ -169,7 +168,7 @@ export function BottomNav({ active, onChange }: { active: ScreenId; onChange: (s
               >
                 {tab.label}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>
