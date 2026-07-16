@@ -22,6 +22,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import { useFavorites, useToast } from "@/components/providers";
+import { callPhone, openTelegramChat } from "@/lib/telegram-client";
 import type { Property, Seller, Story } from "@/types";
 
 const categoryIcon: Record<string, typeof HomeIcon> = {
@@ -318,14 +319,20 @@ export function SellerCard({ seller }: { seller: Seller }) {
       <div className="flex flex-col gap-2">
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => showToast(seller.phone ? `Qo'ng'iroq: ${seller.phone}` : "Telefon raqami mavjud emas", "info")}
+          onClick={() => {
+            if (seller.phone) callPhone(seller.phone);
+            else showToast("Telefon raqami mavjud emas", "info");
+          }}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-white shadow-[var(--shadow-brand)]"
         >
           <Phone className="h-4 w-4" />
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => showToast("Xabar oynasi ochilmoqda...", "info")}
+          onClick={() => {
+            if (seller.username) openTelegramChat(seller.username);
+            else showToast("Telegram username mavjud emas", "info");
+          }}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-600"
         >
           <MessageCircle className="h-4 w-4" />

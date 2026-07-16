@@ -6,6 +6,7 @@ export type UserRole = "user" | "seller" | "admin";
 export interface Seller {
   id: string;
   name: string;
+  username: string | null;
   avatar: string;
   verified: boolean;
   isAgency: boolean;

@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, ChevronDown, Heart, Home, Search, User } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, Heart, Home, Search, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/cn";
 
@@ -120,6 +120,33 @@ export function TopNav({
             )}
           </motion.span>
         </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ============== Inner Page Header (with back button) ============== */
+export function InnerHeader({
+  title,
+  right,
+  onBack,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  onBack?: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div className="safe-top sticky top-0 z-40 glass border-b border-border/70">
+      <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3.5">
+        <button
+          onClick={() => (onBack ? onBack() : router.back())}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/[0.04] active:bg-black/[0.08]"
+        >
+          <ChevronLeft className="h-5 w-5 text-ink-900" />
+        </button>
+        <h1 className="text-heading flex-1 truncate text-[17px] text-ink-900">{title}</h1>
+        {right}
       </div>
     </div>
   );

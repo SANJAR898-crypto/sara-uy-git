@@ -11,25 +11,12 @@ import {
   type ReactNode,
 } from "react";
 import type { CurrentUser } from "@/types";
+import "@/lib/telegram-client";
 
 /* ============================================================
    Telegram WebApp bootstrap + Session
+   (Window.Telegram type is declared centrally in @/lib/telegram-client)
    ============================================================ */
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData: string;
-        ready: () => void;
-        expand: () => void;
-        setHeaderColor?: (color: string) => void;
-        setBackgroundColor?: (color: string) => void;
-        colorScheme?: string;
-        themeParams?: Record<string, string>;
-      };
-    };
-  }
-}
 
 interface SessionContextValue {
   user: CurrentUser | null;

@@ -7,6 +7,7 @@ export function mapSeller(user: UserRow): Seller {
   return {
     id: String(user.id),
     name,
+    username: user.username,
     avatar: user.avatarUrl || `https://i.pravatar.cc/150?u=${user.telegramId}`,
     verified: user.isVerified,
     isAgency: user.isAgency,
