@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Filter, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { Clock, Filter, Search as SearchIcon, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CategoryChips, PropertyCard } from "@/components/property";
 import { BottomSheet, Button, EmptyState, PropertyCardSkeleton } from "@/components/ui";
@@ -21,6 +21,8 @@ export default function SearchPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [aiRanked, setAiRanked] = useState<Property[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -35,6 +37,25 @@ export default function SearchPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // AI Search — once the visitor pauses typing, ask the server to re-rank
+  // matches by relevance/popularity instead of relying purely on client-side
+  // substring filtering.
+  useEffect(() => {
+    if (!query.trim()) {
+      setAiRanked(null);
+      return;
+    }
+    setAiLoading(true);
+    const handle = setTimeout(() => {
+      fetch(`/api/properties?smart=1&limit=100&q=${encodeURIComponent(query.trim())}`)
+        .then((r) => r.json())
+        .then((data) => setAiRanked(data.properties ?? []))
+        .catch(() => setAiRanked(null))
+        .finally(() => setAiLoading(false));
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [query]);
+
   const persistSearch = (value: string) => {
     if (!value.trim()) return;
     setRecentSearches((prev) => {
@@ -45,15 +66,18 @@ export default function SearchPage() {
   };
 
   const results = useMemo(() => {
-    return properties.filter((p) => {
-      if (query && !`${p.title} ${p.district} ${p.city}`.toLowerCase().includes(query.toLowerCase())) return false;
+    const source = query.trim() && aiRanked ? aiRanked : properties;
+    return source.filter((p) => {
+      if (query.trim() && !aiRanked && !`${p.title} ${p.district} ${p.city}`.toLowerCase().includes(query.toLowerCase())) {
+        return false;
+      }
       if (activeCategory && p.category !== activeCategory) return false;
       if (dealType !== "all" && p.dealType !== dealType) return false;
       if (p.price > maxPrice) return false;
       if (p.rooms < minRooms) return false;
       return true;
     });
-  }, [properties, query, activeCategory, dealType, maxPrice, minRooms]);
+  }, [properties, aiRanked, query, activeCategory, dealType, maxPrice, minRooms]);
 
   const applyFilters = () => {
     let count = 0;
@@ -126,7 +150,16 @@ export default function SearchPage() {
       )}
 
       <div className="px-4">
-        {!loading && <p className="mb-3 text-[13px] font-semibold text-ink-700/50">{results.length} ta natija topildi</p>}
+        {!loading && (
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[13px] font-semibold text-ink-700/50">{results.length} ta natija topildi</p>
+            {query.trim() && (
+              <span className="flex items-center gap-1 text-[11.5px] font-semibold text-brand-500">
+                <Sparkles className="h-3.5 w-3.5" /> {aiLoading ? "AI qidirmoqda..." : "AI qidiruv"}
+              </span>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="grid grid-cols-2 gap-3.5">
             {Array.from({ length: 6 }).map((_, i) => (

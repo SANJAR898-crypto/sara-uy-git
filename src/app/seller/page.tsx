@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Award, Eye, Plus } from "lucide-react";
+import { Award, Eye, Plus, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InnerHeader } from "@/components/layout";
@@ -11,6 +11,15 @@ import { attachBackButton } from "@/lib/telegram-client";
 import { formatPrice } from "@/lib/format";
 import { CATEGORIES, CITIES, DISTRICTS } from "@/lib/constants";
 import type { Property } from "@/types";
+
+interface PriceAdvice {
+  low: number;
+  fair: number;
+  high: number;
+  sampleSize: number;
+  currency: string;
+  confidence: "low" | "medium" | "high";
+}
 
 const statusLabel: Record<string, { label: string; variant: "default" | "vip" | "verified" | "new" | "rent" | "danger" }> = {
   pending: { label: "Kutilmoqda", variant: "default" },
@@ -40,6 +49,31 @@ export default function SellerDashboardPage() {
     area: "60",
     description: "",
   });
+  const [priceAdvice, setPriceAdvice] = useState<PriceAdvice | null>(null);
+  const [priceAdviceLoading, setPriceAdviceLoading] = useState(false);
+
+  // AI Price Advisor — recompute the suggested fair price range whenever the
+  // key listing attributes change while the create-listing sheet is open.
+  useEffect(() => {
+    if (!formOpen) return;
+    setPriceAdviceLoading(true);
+    const handle = setTimeout(() => {
+      const params = new URLSearchParams({
+        category: form.category,
+        dealType: form.dealType,
+        city: form.city,
+        area: form.area || "0",
+        rooms: form.rooms || "0",
+      });
+      fetch(`/api/ai/price-advice?${params.toString()}`)
+        .then((r) => r.json())
+        .then((data) => setPriceAdvice(data.advice ?? null))
+        .catch(() => setPriceAdvice(null))
+        .finally(() => setPriceAdviceLoading(false));
+    }, 300);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formOpen, form.category, form.dealType, form.city, form.area, form.rooms]);
 
   const load = () => {
     setLoading(true);
@@ -222,6 +256,30 @@ export default function SellerDashboardPage() {
                 className="w-full rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[14px] outline-none focus:border-brand-400"
               />
             </Field>
+          </div>
+
+          <div className="rounded-[var(--radius-md)] border border-brand-100 bg-brand-50/60 p-3">
+            <p className="flex items-center gap-1.5 text-[12px] font-bold text-brand-600">
+              <Sparkles className="h-3.5 w-3.5" /> AI narx maslahatchisi
+            </p>
+            {priceAdviceLoading ? (
+              <p className="mt-1 text-[12px] text-ink-700/50">Tahlil qilinmoqda...</p>
+            ) : priceAdvice ? (
+              <div className="mt-1.5 flex items-center justify-between text-[12.5px] text-ink-800">
+                <span>
+                  Tavsiya etilgan narx: <b>${priceAdvice.low.toLocaleString()}</b> – <b>${priceAdvice.high.toLocaleString()}</b>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, price: String(priceAdvice.fair) }))}
+                  className="shrink-0 rounded-full bg-brand-500 px-2.5 py-1 text-[11px] font-bold text-white"
+                >
+                  ${priceAdvice.fair.toLocaleString()} qo&apos;llash
+                </button>
+              </div>
+            ) : (
+              <p className="mt-1 text-[12px] text-ink-700/50">O&apos;xshash e&apos;lonlar hali yetarli emas.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

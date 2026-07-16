@@ -9,11 +9,14 @@ import { PropertyCardSkeleton } from "@/components/ui";
 import { CATEGORIES } from "@/lib/constants";
 import type { Property, Story } from "@/types";
 
+type RecommendedProperty = Property & { matchScore: number };
+
 export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeStory, setActiveStory] = useState<Story | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
+  const [recommended, setRecommended] = useState<RecommendedProperty[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +29,12 @@ export default function HomePage() {
         setStories(storiesData.stories ?? []);
       })
       .finally(() => setLoading(false));
+
+    // AI Recommendation Engine — personalised picks based on the viewer's favorites.
+    fetch("/api/ai/recommendations")
+      .then((r) => r.json())
+      .then((data) => setRecommended(data.recommendations ?? []))
+      .catch(() => {});
   }, []);
 
   const filtered = useMemo(
@@ -98,6 +107,19 @@ export default function HomePage() {
                     <PropertyCard property={p} index={i} />
                   </div>
                 ))}
+          </div>
+        </div>
+      )}
+
+      {recommended.length > 0 && (
+        <div>
+          <SectionTitle title="Siz uchun tavsiya" badge={<Sparkles className="h-3.5 w-3.5" />} />
+          <div className="no-scrollbar flex gap-3.5 overflow-x-auto px-4 pb-1">
+            {recommended.map((p, i) => (
+              <div key={p.id} className="w-[220px] shrink-0">
+                <PropertyCard property={p} index={i} matchScore={p.matchScore} />
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { AlertTriangle, CheckCircle2, Info, Loader2, SearchX, X } from "lucide-react";
 import { type ButtonHTMLAttributes, type ReactNode, useEffect } from "react";
 import { cn } from "@/lib/cn";
@@ -281,7 +281,7 @@ export function BottomSheet({
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.4 }}
-            onDragEnd={(_, info) => {
+            onDragEnd={(_, info: PanInfo) => {
               if (info.offset.y > 120) onClose();
             }}
             initial={{ y: "100%" }}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { properties, users } from "@/db/schema";
+import { notifications, properties, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentDbUser } from "@/lib/auth";
 import { mapProperty } from "@/lib/mappers";
@@ -82,6 +82,35 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const [updated] = await db.update(properties).set(patch).where(eq(properties.id, numId)).returning();
   const seller = isOwner ? existing.seller : (await db.select().from(users).where(eq(users.id, updated.sellerId)))[0];
+
+  // Notify the seller when an admin moderates their listing.
+  if (isAdmin && !isOwner) {
+    if (patch.status === "active" && existing.property.status !== "active") {
+      await db.insert(notifications).values({
+        userId: updated.sellerId,
+        title: "E'lon tasdiqlandi ✅",
+        message: `"${updated.title}" e'loningiz moderatsiyadan o'tdi va endi platformada ko'rinadi.`,
+        type: "system",
+      });
+    } else if (patch.status === "rejected" && existing.property.status !== "rejected") {
+      await db.insert(notifications).values({
+        userId: updated.sellerId,
+        title: "E'lon rad etildi",
+        message: updated.rejectionReason
+          ? `"${updated.title}" e'loningiz rad etildi. Sabab: ${updated.rejectionReason}`
+          : `"${updated.title}" e'loningiz rad etildi.`,
+        type: "system",
+      });
+    }
+    if (patch.isVip === true && !existing.property.isVip) {
+      await db.insert(notifications).values({
+        userId: updated.sellerId,
+        title: "VIP maqomi berildi ⭐",
+        message: `"${updated.title}" e'loningiz endi VIP sifatida ko'rsatiladi.`,
+        type: "vip",
+      });
+    }
+  }
 
   return NextResponse.json({ property: mapProperty(updated, seller) });
 }

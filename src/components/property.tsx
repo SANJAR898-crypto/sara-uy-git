@@ -230,7 +230,16 @@ export function FavoriteButton({ property, size = "md" }: { property: Property; 
 }
 
 /* ============== Property Card ============== */
-export function PropertyCard({ property, index = 0 }: { property: Property; index?: number }) {
+export function PropertyCard({
+  property,
+  index = 0,
+  matchScore,
+}: {
+  property: Property;
+  index?: number;
+  /** AI Match Score (0-100) — how well this listing fits the viewer's taste profile. */
+  matchScore?: number;
+}) {
   const [loaded, setLoaded] = useState(false);
   return (
     <Link href={`/property/${property.id}`} className="block w-full">
@@ -269,6 +278,11 @@ export function PropertyCard({ property, index = 0 }: { property: Property; inde
           <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-full bg-black/40 px-2 py-1 text-[10px] font-medium text-white backdrop-blur">
             <Eye className="h-3 w-3" /> {property.views}
           </div>
+          {typeof matchScore === "number" && (
+            <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-400 px-2 py-1 text-[10px] font-bold text-white shadow-[var(--shadow-brand)]">
+              <Sparkles className="h-3 w-3" /> {matchScore}% mos
+            </div>
+          )}
         </div>
         <div className="space-y-1.5 p-3">
           <p className="text-heading truncate text-[15px] text-ink-900">
