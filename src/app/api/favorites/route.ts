@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { favorites, properties, users } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { favorites, notifications, properties, users } from "@/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 import { getCurrentDbUser } from "@/lib/auth";
 import { mapProperty } from "@/lib/mappers";
+import { logPropertyEvent } from "@/lib/seller-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,30 @@ export async function POST(req: NextRequest) {
 
   if (existing.length > 0) {
     await db.delete(favorites).where(eq(favorites.id, existing[0].id));
+    await db
+      .update(properties)
+      .set({ favoritesCount: sql`greatest(${properties.favoritesCount} - 1, 0)` })
+      .where(eq(properties.id, propertyId));
+    await logPropertyEvent(propertyId, "unfavorite");
     return NextResponse.json({ favorited: false });
   }
 
   await db.insert(favorites).values({ userId: user.id, propertyId });
+  const [updated] = await db
+    .update(properties)
+    .set({ favoritesCount: sql`${properties.favoritesCount} + 1` })
+    .where(eq(properties.id, propertyId))
+    .returning();
+  await logPropertyEvent(propertyId, "favorite");
+
+  if (updated && updated.sellerId !== user.id) {
+    await db.insert(notifications).values({
+      userId: updated.sellerId,
+      title: "Yangi sevimli ❤️",
+      message: `"${updated.title}" e'loningiz sevimlilarga qo'shildi.`,
+      type: "favorite",
+    });
+  }
+
   return NextResponse.json({ favorited: true });
 }
