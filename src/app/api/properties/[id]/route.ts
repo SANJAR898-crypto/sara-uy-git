@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentDbUser } from "@/lib/auth";
 import { mapProperty } from "@/lib/mappers";
 import { validateListingCreate } from "@/lib/validation";
+import { logAudit } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -154,10 +155,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Audit trail: record every moderation action an admin performs on a
+  // listing they don't own (status changes, VIP/premium/verified toggles).
+  if (isAdmin && !isOwner) {
+    await logAudit({
+      actor: user,
+      action: "property.moderate",
+      targetType: "property",
+      targetId: numId,
+      metadata: patch,
+      req,
+    });
+  }
+
   return NextResponse.json({ property: mapProperty(updated, seller) });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const numId = Number(id);
   if (!Number.isFinite(numId)) return NextResponse.json({ error: "Noto'g'ri ID" }, { status: 400 });
@@ -169,8 +183,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return NextResponse.json({ error: "Topilmadi" }, { status: 404 });
 
   const isOwner = existing.property.sellerId === user.id;
-  if (!isOwner && user.role !== "admin") return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 403 });
+  const isAdmin = user.role === "admin";
+  if (!isOwner && !isAdmin) return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 403 });
 
   await db.delete(properties).where(eq(properties.id, numId));
+
+  if (isAdmin && !isOwner) {
+    await logAudit({ actor: user, action: "property.delete", targetType: "property", targetId: numId, req });
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -2,17 +2,26 @@
 
 import { motion } from "framer-motion";
 import {
+  AlertOctagon,
   Award,
   BarChart3,
+  Bell,
   Check,
+  CreditCard,
   Eye,
+  Flag,
   Image as ImageIcon,
   Layers,
   Plus,
+  ScrollText,
+  Send,
+  Settings as SettingsIcon,
   ShieldCheck,
   ShieldX,
   Sparkles,
   Star,
+  ToggleLeft,
+  ToggleRight,
   Trash2,
   Users as UsersIcon,
   X,
@@ -68,6 +77,12 @@ const TABS = [
   { id: "properties", label: "E'lonlar", icon: Layers },
   { id: "users", label: "Foydalanuvchilar", icon: UsersIcon },
   { id: "stories", label: "Stories", icon: Sparkles },
+  { id: "reports", label: "Shikoyatlar", icon: Flag },
+  { id: "payments", label: "To'lovlar", icon: CreditCard },
+  { id: "notifications", label: "Xabarnomalar", icon: Bell },
+  { id: "flags", label: "Feature Flags", icon: ToggleRight },
+  { id: "settings", label: "Sozlamalar", icon: SettingsIcon },
+  { id: "logs", label: "Audit Trail", icon: ScrollText },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -126,6 +141,12 @@ export default function AdminPage() {
           {tab === "properties" && <PropertiesTab />}
           {tab === "users" && <UsersTab />}
           {tab === "stories" && <StoriesTab />}
+          {tab === "reports" && <ReportsTab />}
+          {tab === "payments" && <PaymentsTab />}
+          {tab === "notifications" && <NotificationsTab />}
+          {tab === "flags" && <FeatureFlagsTab />}
+          {tab === "settings" && <SettingsTab />}
+          {tab === "logs" && <AuditLogsTab />}
         </>
       )}
     </div>
@@ -664,6 +685,642 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <p className="mb-1.5 text-[12.5px] font-semibold text-ink-700/60">{label}</p>
       {children}
+    </div>
+  );
+}
+
+/* ============================================================
+   REPORTS  (content / user moderation queue)
+   ============================================================ */
+interface AdminReport {
+  id: string;
+  reporterName: string | null;
+  targetType: string;
+  targetId: number;
+  reason: string;
+  details: string | null;
+  status: "open" | "reviewing" | "resolved" | "dismissed";
+  createdAt: string;
+}
+
+const reportStatusFilters = [
+  { id: "all", label: "Barchasi" },
+  { id: "open", label: "Ochiq" },
+  { id: "reviewing", label: "Ko'rib chiqilmoqda" },
+  { id: "resolved", label: "Hal qilingan" },
+  { id: "dismissed", label: "Rad etilgan" },
+] as const;
+
+function ReportsTab() {
+  const { showToast } = useToast();
+  const [items, setItems] = useState<AdminReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<(typeof reportStatusFilters)[number]["id"]>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = (status = statusFilter) => {
+    setLoading(true);
+    setError(false);
+    fetch(`/api/admin/reports?status=${status}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("forbidden");
+        return r.json();
+      })
+      .then((data) => setItems(data.reports ?? []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load(statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
+
+  const updateStatus = async (id: string, status: string) => {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/admin/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(id), status }),
+      });
+      if (res.ok) {
+        showToast("Shikoyat holati yangilandi", "success");
+        load(statusFilter);
+      } else {
+        showToast("Xatolik yuz berdi", "error");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4 px-4 pb-6">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+        {reportStatusFilters.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setStatusFilter(s.id)}
+            className={cn(
+              "shrink-0 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold transition-colors",
+              statusFilter === s.id ? "border-brand-500 bg-brand-50 text-brand-600" : "border-border bg-white text-ink-700/60"
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <Loader />
+      ) : error ? (
+        <ErrorState onRetry={() => load(statusFilter)} />
+      ) : items.length === 0 ? (
+        <EmptyState icon={<Flag className="h-9 w-9" />} title="Shikoyatlar yo'q" message="Bu filtr bo'yicha shikoyat topilmadi." />
+      ) : (
+        items.map((r) => (
+          <div key={r.id} className="space-y-3 rounded-[var(--radius-lg)] border border-border bg-white p-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-ink-900">
+                  {r.targetType === "property" ? "E'lon" : "Foydalanuvchi"} #{r.targetId}
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink-700/50">Shikoyatchi: {r.reporterName ?? "Noma'lum"}</p>
+              </div>
+              <Badge
+                variant={
+                  r.status === "resolved" ? "verified" : r.status === "dismissed" ? "default" : r.status === "reviewing" ? "rent" : "danger"
+                }
+              >
+                {r.status}
+              </Badge>
+            </div>
+            <p className="text-[13px] font-semibold text-ink-800">{r.reason}</p>
+            {r.details && <p className="text-[12.5px] text-ink-700/60">{r.details}</p>}
+            <div className="flex flex-wrap gap-2">
+              {r.status !== "reviewing" && (
+                <Button size="sm" variant="outline" loading={busyId === r.id} onClick={() => updateStatus(r.id, "reviewing")}>
+                  Ko&apos;rib chiqish
+                </Button>
+              )}
+              {r.status !== "resolved" && (
+                <Button size="sm" loading={busyId === r.id} onClick={() => updateStatus(r.id, "resolved")}>
+                  <Check className="h-3.5 w-3.5" /> Hal qilish
+                </Button>
+              )}
+              {r.status !== "dismissed" && (
+                <Button size="sm" variant="ghost" loading={busyId === r.id} onClick={() => updateStatus(r.id, "dismissed")}>
+                  <X className="h-3.5 w-3.5" /> Rad etish
+                </Button>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   PAYMENTS  (subscription revenue ledger)
+   ============================================================ */
+interface AdminPayment {
+  id: string;
+  sellerName: string | null;
+  sellerId: string;
+  planKey: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "paid" | "failed" | "refunded";
+  method: string;
+  note: string | null;
+  createdAt: string;
+}
+
+function PaymentsTab() {
+  const { showToast } = useToast();
+  const [items, setItems] = useState<AdminPayment[]>([]);
+  const [summary, setSummary] = useState<{ totalRevenue: number; pendingCount: number; paidCount: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(false);
+    fetch("/api/admin/payments")
+      .then((r) => {
+        if (!r.ok) throw new Error("forbidden");
+        return r.json();
+      })
+      .then((data) => {
+        setItems(data.payments ?? []);
+        setSummary(data.summary ?? null);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const updateStatus = async (id: string, status: string) => {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/admin/payments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(id), status }),
+      });
+      if (res.ok) {
+        showToast("To'lov holati yangilandi", "success");
+        load();
+      } else {
+        showToast("Xatolik yuz berdi", "error");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return <Loader className="pt-10 px-4" />;
+  if (error) return <ErrorState onRetry={load} />;
+
+  return (
+    <div className="space-y-4 px-4 pb-6">
+      {summary && (
+        <div className="grid grid-cols-3 gap-2.5">
+          <StatCard label="Jami daromad" value={Math.round(summary.totalRevenue)} icon={<CreditCard className="h-4.5 w-4.5" />} />
+          <StatCard label="Kutilmoqda" value={summary.pendingCount} icon={<AlertOctagon className="h-4.5 w-4.5" />} />
+          <StatCard label="To'langan" value={summary.paidCount} icon={<Check className="h-4.5 w-4.5" />} />
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <EmptyState icon={<CreditCard className="h-9 w-9" />} title="To'lovlar yo'q" />
+      ) : (
+        items.map((p) => (
+          <div key={p.id} className="space-y-2.5 rounded-[var(--radius-lg)] border border-border bg-white p-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-bold text-ink-900">{p.sellerName ?? "Noma'lum"}</p>
+                <p className="text-[12px] uppercase text-ink-700/50">{p.planKey} • {p.method}</p>
+              </div>
+              <Badge variant={p.status === "paid" ? "verified" : p.status === "failed" || p.status === "refunded" ? "danger" : "default"}>
+                {p.status}
+              </Badge>
+            </div>
+            <p className="text-[15px] font-bold text-brand-600">
+              {p.amount.toLocaleString()} {p.currency}
+            </p>
+            {p.note && <p className="text-[12px] text-ink-700/50">{p.note}</p>}
+            <div className="flex flex-wrap gap-2">
+              {p.status !== "paid" && (
+                <Button size="sm" loading={busyId === p.id} onClick={() => updateStatus(p.id, "paid")}>
+                  <Check className="h-3.5 w-3.5" /> To&apos;langan deb belgilash
+                </Button>
+              )}
+              {p.status !== "failed" && p.status !== "paid" && (
+                <Button size="sm" variant="danger" loading={busyId === p.id} onClick={() => updateStatus(p.id, "failed")}>
+                  <X className="h-3.5 w-3.5" /> Muvaffaqiyatsiz
+                </Button>
+              )}
+              {p.status === "paid" && (
+                <Button size="sm" variant="ghost" loading={busyId === p.id} onClick={() => updateStatus(p.id, "refunded")}>
+                  Qaytarish
+                </Button>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   NOTIFICATION CENTER  (broadcast)
+   ============================================================ */
+function NotificationsTab() {
+  const { showToast } = useToast();
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [audience, setAudience] = useState<"all" | "sellers" | "users">("all");
+  const [sending, setSending] = useState(false);
+  const [broadcasts, setBroadcasts] = useState<{ id: string; title: string; message: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    fetch("/api/admin/notifications")
+      .then((r) => (r.ok ? r.json() : { broadcasts: [] }))
+      .then((data) => setBroadcasts(data.broadcasts ?? []))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const send = async () => {
+    if (!title || !message) {
+      showToast("Sarlavha va matnni kiriting", "error");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, message, audience, type: "system" }),
+      });
+      if (res.ok) {
+        showToast("Xabarnoma yuborildi", "success");
+        setTitle("");
+        setMessage("");
+        load();
+      } else {
+        showToast("Xatolik yuz berdi", "error");
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-3 rounded-[var(--radius-lg)] border border-border bg-white p-4">
+        <h3 className="text-heading text-[15px] text-ink-900">Yangi xabarnoma yuborish</h3>
+        <Field label="Auditoriya">
+          <div className="flex gap-2">
+            {(["all", "sellers", "users"] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAudience(a)}
+                className={cn(
+                  "rounded-full border px-3.5 py-2 text-[12.5px] font-semibold transition-colors",
+                  audience === a ? "border-brand-500 bg-brand-500 text-white" : "border-border bg-white text-ink-700/60"
+                )}
+              >
+                {a === "all" ? "Barchaga" : a === "sellers" ? "Sotuvchilarga" : "Foydalanuvchilarga"}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Sarlavha">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[14px] outline-none focus:border-brand-400"
+            placeholder="Masalan: Yangi funksiya!"
+          />
+        </Field>
+        <Field label="Matn">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+            className="w-full rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[14px] outline-none focus:border-brand-400"
+            placeholder="Xabar matni..."
+          />
+        </Field>
+        <Button className="w-full" loading={sending} onClick={send}>
+          <Send className="h-4 w-4" /> Yuborish
+        </Button>
+      </div>
+
+      <div>
+        <h3 className="text-heading mb-3 text-[15px] text-ink-900">So&apos;nggi xabarnomalar</h3>
+        {loading ? (
+          <Loader />
+        ) : broadcasts.length === 0 ? (
+          <EmptyState icon={<Bell className="h-9 w-9" />} title="Xabarnomalar yo'q" />
+        ) : (
+          <div className="space-y-2.5">
+            {broadcasts.map((b) => (
+              <div key={b.id} className="rounded-[var(--radius-lg)] border border-border bg-white p-3.5">
+                <p className="text-[13.5px] font-bold text-ink-900">{b.title}</p>
+                <p className="mt-0.5 text-[12.5px] text-ink-700/60">{b.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   FEATURE FLAGS
+   ============================================================ */
+interface AdminFlag {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  enabled: boolean;
+}
+
+function FeatureFlagsTab() {
+  const { showToast } = useToast();
+  const [items, setItems] = useState<AdminFlag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(false);
+    fetch("/api/admin/feature-flags")
+      .then((r) => {
+        if (!r.ok) throw new Error("forbidden");
+        return r.json();
+      })
+      .then((data) => setItems(data.flags ?? []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const toggle = async (flag: AdminFlag) => {
+    setBusyId(flag.id);
+    try {
+      const res = await fetch("/api/admin/feature-flags", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(flag.id), enabled: !flag.enabled }),
+      });
+      if (res.ok) {
+        showToast(!flag.enabled ? `${flag.label} yoqildi` : `${flag.label} o'chirildi`, "success");
+        load();
+      } else {
+        showToast("Xatolik yuz berdi", "error");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return <Loader className="pt-10 px-4" />;
+  if (error) return <ErrorState onRetry={load} />;
+
+  return (
+    <div className="space-y-3 px-4 pb-6">
+      {items.length === 0 ? (
+        <EmptyState icon={<ToggleRight className="h-9 w-9" />} title="Feature flag topilmadi" />
+      ) : (
+        items.map((f) => (
+          <button
+            key={f.id}
+            disabled={busyId === f.id}
+            onClick={() => toggle(f)}
+            className="flex w-full items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border bg-white p-3.5 text-left disabled:opacity-60"
+          >
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-ink-900">{f.label}</p>
+              {f.description && <p className="mt-0.5 text-[12px] text-ink-700/50">{f.description}</p>}
+              <p className="mt-0.5 text-[10.5px] uppercase tracking-wide text-ink-700/30">{f.key}</p>
+            </div>
+            {f.enabled ? (
+              <ToggleRight className="h-8 w-8 shrink-0 text-brand-500" />
+            ) : (
+              <ToggleLeft className="h-8 w-8 shrink-0 text-ink-700/30" />
+            )}
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   SYSTEM SETTINGS  (incl. Maintenance Mode)
+   ============================================================ */
+interface MaintenanceSetting {
+  enabled: boolean;
+  message: string;
+}
+
+function SettingsTab() {
+  const { showToast } = useToast();
+  const [maintenance, setMaintenance] = useState<MaintenanceSetting>({ enabled: false, message: "" });
+  const [commissionPercent, setCommissionPercent] = useState(3);
+  const [supportTelegram, setSupportTelegram] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetch("/api/admin/settings")
+      .then((r) => (r.ok ? r.json() : { settings: {} }))
+      .then((data) => {
+        const s = data.settings ?? {};
+        if (s.maintenance_mode) setMaintenance(s.maintenance_mode);
+        if (s.commission_rate?.percent != null) setCommissionPercent(s.commission_rate.percent);
+        if (s.support_contact?.telegram) setSupportTelegram(s.support_contact.telegram);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const saveSetting = async (key: string, value: unknown, successMsg: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      if (res.ok) {
+        showToast(successMsg, "success");
+      } else {
+        showToast("Xatolik yuz berdi", "error");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Loader className="pt-10 px-4" />;
+
+  return (
+    <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-3 rounded-[var(--radius-lg)] border border-border bg-white p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-heading text-[15px] text-ink-900">Texnik ishlar rejimi</h3>
+          <button
+            onClick={() => {
+              const next = { ...maintenance, enabled: !maintenance.enabled };
+              setMaintenance(next);
+              saveSetting("maintenance_mode", next, next.enabled ? "Texnik ishlar rejimi yoqildi" : "Texnik ishlar rejimi o'chirildi");
+            }}
+          >
+            {maintenance.enabled ? (
+              <ToggleRight className="h-8 w-8 text-error" />
+            ) : (
+              <ToggleLeft className="h-8 w-8 text-ink-700/30" />
+            )}
+          </button>
+        </div>
+        <p className="text-[12.5px] text-ink-700/50">
+          Yoqilganda, adminlardan tashqari barcha foydalanuvchilar uchun ilova bloklanadi.
+        </p>
+        <textarea
+          value={maintenance.message}
+          onChange={(e) => setMaintenance((m) => ({ ...m, message: e.target.value }))}
+          rows={2}
+          className="w-full rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[13.5px] outline-none focus:border-brand-400"
+          placeholder="Foydalanuvchilarga ko'rsatiladigan xabar"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          loading={saving}
+          onClick={() => saveSetting("maintenance_mode", maintenance, "Xabar saqlandi")}
+        >
+          Xabarni saqlash
+        </Button>
+      </div>
+
+      <div className="space-y-3 rounded-[var(--radius-lg)] border border-border bg-white p-4">
+        <h3 className="text-heading text-[15px] text-ink-900">Komissiya foizi</h3>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(Number(e.target.value))}
+            className="w-24 rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[14px] outline-none focus:border-brand-400"
+          />
+          <span className="text-[13.5px] text-ink-700/60">%</span>
+          <Button
+            size="sm"
+            loading={saving}
+            onClick={() => saveSetting("commission_rate", { percent: commissionPercent }, "Komissiya yangilandi")}
+          >
+            Saqlash
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-[var(--radius-lg)] border border-border bg-white p-4">
+        <h3 className="text-heading text-[15px] text-ink-900">Qo&apos;llab-quvvatlash Telegram</h3>
+        <div className="flex items-center gap-3">
+          <input
+            value={supportTelegram}
+            onChange={(e) => setSupportTelegram(e.target.value)}
+            className="flex-1 rounded-[var(--radius-md)] border border-border px-3.5 py-2.5 text-[14px] outline-none focus:border-brand-400"
+            placeholder="@username"
+          />
+          <Button
+            size="sm"
+            loading={saving}
+            onClick={() => saveSetting("support_contact", { telegram: supportTelegram }, "Kontakt yangilandi")}
+          >
+            Saqlash
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   AUDIT TRAIL / LOGS
+   ============================================================ */
+interface AdminAuditLog {
+  id: string;
+  actorName: string | null;
+  actorTelegramId: number | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  createdAt: string;
+}
+
+function AuditLogsTab() {
+  const [items, setItems] = useState<AdminAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setError(false);
+    fetch("/api/admin/audit-logs")
+      .then((r) => {
+        if (!r.ok) throw new Error("forbidden");
+        return r.json();
+      })
+      .then((data) => setItems(data.logs ?? []))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  if (loading) return <Loader className="pt-10 px-4" />;
+  if (error) return <ErrorState onRetry={load} />;
+
+  return (
+    <div className="space-y-2.5 px-4 pb-6">
+      {items.length === 0 ? (
+        <EmptyState icon={<ScrollText className="h-9 w-9" />} title="Loglar yo'q" />
+      ) : (
+        items.map((l) => (
+          <div key={l.id} className="rounded-[var(--radius-lg)] border border-border bg-white p-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[13px] font-bold text-ink-900">{l.action}</p>
+              <span className="shrink-0 text-[11px] text-ink-700/40">{new Date(l.createdAt).toLocaleString("uz-UZ")}</span>
+            </div>
+            <p className="mt-0.5 text-[12px] text-ink-700/60">
+              {l.actorName ?? "Tizim"} {l.actorTelegramId ? `(ID: ${l.actorTelegramId})` : ""}
+              {l.targetType && ` • ${l.targetType}${l.targetId ? ` #${l.targetId}` : ""}`}
+            </p>
+          </div>
+        ))
+      )}
     </div>
   );
 }

@@ -262,3 +262,103 @@ export type ListingDraftRow = typeof listingDrafts.$inferSelect;
 export type SubscriptionPlanRow = typeof subscriptionPlans.$inferSelect;
 export type SellerSubscriptionRow = typeof sellerSubscriptions.$inferSelect;
 export type PropertyEventRow = typeof propertyEvents.$inferSelect;
+
+/* ============================================================
+   AUDIT LOGS  (Phase 5 — Enterprise Admin Panel)
+   Every privileged admin action is recorded here for compliance.
+   ============================================================ */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+    actorTelegramId: bigint("actor_telegram_id", { mode: "number" }),
+    actorName: text("actor_name"),
+    action: text("action").notNull(), // e.g. property.approve, user.role_change, settings.update
+    targetType: text("target_type"), // property | user | story | settings | flag | payment | notification | report
+    targetId: text("target_id"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    ip: text("ip"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("audit_logs_actor_idx").on(table.actorId),
+    index("audit_logs_created_idx").on(table.createdAt),
+    index("audit_logs_action_idx").on(table.action),
+  ]
+);
+
+/* ============================================================
+   REPORTS  (user-submitted reports for moderation)
+   ============================================================ */
+export const reports = pgTable(
+  "reports",
+  {
+    id: serial("id").primaryKey(),
+    reporterId: integer("reporter_id").references(() => users.id, { onDelete: "set null" }),
+    targetType: text("target_type").notNull(), // property | user
+    targetId: integer("target_id").notNull(),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    status: text("status").notNull().default("open"), // open | reviewing | resolved | dismissed
+    resolvedBy: integer("resolved_by").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("reports_status_idx").on(table.status),
+    index("reports_target_idx").on(table.targetType, table.targetId),
+  ]
+);
+
+/* ============================================================
+   FEATURE FLAGS
+   ============================================================ */
+export const featureFlags = pgTable("feature_flags", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  label: text("label").notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+/* ============================================================
+   SYSTEM SETTINGS  (key/value store, incl. maintenance mode)
+   ============================================================ */
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").$type<unknown>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+/* ============================================================
+   PAYMENTS  (subscription revenue ledger)
+   ============================================================ */
+export const payments = pgTable(
+  "payments",
+  {
+    id: serial("id").primaryKey(),
+    sellerId: integer("seller_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    planKey: text("plan_key").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("UZS"),
+    status: text("status").notNull().default("pending"), // pending | paid | failed | refunded
+    method: text("method").notNull().default("manual"), // manual | click | payme | card
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+  },
+  (table) => [index("payments_seller_idx").on(table.sellerId), index("payments_status_idx").on(table.status)]
+);
+
+export type AuditLogRow = typeof auditLogs.$inferSelect;
+export type ReportRow = typeof reports.$inferSelect;
+export type FeatureFlagRow = typeof featureFlags.$inferSelect;
+export type SystemSettingRow = typeof systemSettings.$inferSelect;
+export type PaymentRow = typeof payments.$inferSelect;

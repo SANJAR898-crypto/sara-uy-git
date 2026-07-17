@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import Script from "next/script";
 import { FavoritesProvider, SessionProvider, ToastProvider } from "@/components/providers";
 import { ToastContainer } from "@/components/ui";
+import { getSession } from "@/lib/session";
+import { isMaintenanceModeEnabled } from "@/lib/admin";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +22,15 @@ export const viewport: Viewport = {
   themeColor: "#0B84D6",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Backend-only maintenance gate. The Telegram-authenticated session role is
+  // read from the signed JWT cookie (never trusted from the client) so admins
+  // always retain access while everyone else sees the maintenance screen.
+  const session = await getSession();
+  const isAdminSession = session?.role === "admin";
+  const maintenance = await isMaintenanceModeEnabled();
+  const showMaintenance = maintenance.enabled && !isAdminSession;
+
   return (
     <html lang="uz">
       <head>
@@ -38,7 +48,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <FavoritesProvider>
               <div className="min-h-screen w-full bg-gradient-to-br from-[#08233a] via-[#0d3a5c] to-[#0b84d6]">
                 <div className="relative mx-auto min-h-screen w-full max-w-lg bg-bg shadow-[0_0_80px_rgba(0,0,0,0.25)]">
-                  {children}
+                  {showMaintenance ? (
+                    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-8 text-center">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-50 text-4xl">🛠️</div>
+                      <h1 className="text-heading text-[19px] text-ink-900">Texnik ishlar olib borilmoqda</h1>
+                      <p className="max-w-[280px] text-[14px] leading-relaxed text-ink-700/60">{maintenance.message}</p>
+                    </div>
+                  ) : (
+                    children
+                  )}
                 </div>
               </div>
               <ToastContainer />

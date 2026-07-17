@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
+import { logAudit } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,24 @@ export async function PATCH(req: NextRequest) {
   const id = Number(body.id);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "Noto'g'ri ID" }, { status: 400 });
 
+  // Prevent privilege escalation: only an existing admin (verified above via
+  // requireRole, backend-only, never trusting frontend-sent roles) may grant
+  // or revoke the admin role. Admins may not demote themselves accidentally
+  // through this generic endpoint to avoid locking the panel with 0 admins.
   const patch: Record<string, unknown> = {};
-  if (["user", "seller", "admin"].includes(body.role)) patch.role = body.role;
+  if (["user", "seller", "admin"].includes(body.role)) {
+    if (id === admin.id && body.role !== "admin") {
+      return NextResponse.json({ error: "O'zingizni admin lavozimidan olib tashlay olmaysiz" }, { status: 400 });
+    }
+    patch.role = body.role;
+  }
   if (typeof body.isVerified === "boolean") patch.isVerified = body.isVerified;
 
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Bo'sh so'rov" }, { status: 400 });
 
   await db.update(users).set(patch).where(eq(users.id, id));
+
+  await logAudit({ actor: admin, action: "user.update", targetType: "user", targetId: id, metadata: patch, req });
+
   return NextResponse.json({ ok: true });
 }
