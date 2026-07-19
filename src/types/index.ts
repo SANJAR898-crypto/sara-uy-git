@@ -222,3 +222,97 @@ export interface AiAssistResult {
   tags?: string[];
   source: "heuristic" | "ai";
 }
+
+/* ============================================================
+   AI ECOSYSTEM TYPES (Phase 6)
+   ============================================================ */
+
+export interface AiPriceAdvice {
+  low: number;
+  fair: number;
+  high: number;
+  currency: string;
+  sampleSize: number;
+  confidence: "low" | "medium" | "high";
+  pricePerSqm?: number;
+  marketComparison: "below" | "fair" | "above";
+  estimatedDemand: "low" | "medium" | "high";
+  estimatedSellingDays: number;
+}
+
+export interface AiQualityScore {
+  overall: number;
+  breakdown: {
+    title: number;
+    description: number;
+    images: number;
+    pricing: number;
+    completeness: number;
+    seo: number;
+  };
+  issues: Array<{
+    field: string;
+    severity: "warning" | "error";
+    message: string;
+    suggestion: string;
+  }>;
+  seoKeywords: string[];
+  estimatedVisibility: "low" | "medium" | "high";
+}
+
+export interface AiMatchScore {
+  score: number;
+  breakdown: {
+    budget: number;
+    location: number;
+    size: number;
+    features: number;
+    history: number;
+  };
+  reasons: string[];
+  explanation: string;
+}
+
+export interface AiSearchResult {
+  query: {
+    original: string;
+    parsed: Record<string, unknown>;
+    description: string;
+    confidence: number;
+    suggestions: string[];
+  };
+  properties: Property[];
+  total: number;
+}
+
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  properties?: string[];
+  suggestions?: string[];
+}
+
+export interface AiMarketSummary {
+  avgPrice: number;
+  medianPrice: number;
+  listingsCount: number;
+  priceRange: { min: number; max: number };
+  pricePerSqm: number;
+  demandLevel: "low" | "medium" | "high";
+  priceComparison: string;
+}
+
+export interface AiModerationResult {
+  approved: boolean;
+  confidence: number;
+  flags: Array<{
+    type: string;
+    severity: "low" | "medium" | "high";
+    confidence: number;
+    message: string;
+  }>;
+  suggestedAction: "approve" | "review" | "reject" | "ban_user";
+  reviewPriority: "low" | "medium" | "high" | "urgent";
+}

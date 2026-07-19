@@ -362,3 +362,77 @@ export type ReportRow = typeof reports.$inferSelect;
 export type FeatureFlagRow = typeof featureFlags.$inferSelect;
 export type SystemSettingRow = typeof systemSettings.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
+
+/* ============================================================
+   AI ANALYTICS  (Phase 6 — AI Ecosystem)
+   Tracks AI feature usage for optimization
+   ============================================================ */
+export const aiAnalytics = pgTable(
+  "ai_analytics",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    // ai_search | match_click | recommendation_click | price_advisor | image_verification | chat_message | moderation
+    eventType: text("event_type").notNull(),
+    propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_analytics_event_idx").on(table.eventType),
+    index("ai_analytics_user_idx").on(table.userId),
+    index("ai_analytics_created_idx").on(table.createdAt),
+  ]
+);
+
+/* ============================================================
+   USER TASTE PROFILES  (Phase 6 — AI Recommendations)
+   Cached user preference profiles for faster recommendations
+   ============================================================ */
+export const userTasteProfiles = pgTable(
+  "user_taste_profiles",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    categories: jsonb("categories").$type<Record<string, number>>().notNull().default({}),
+    cities: jsonb("cities").$type<Record<string, number>>().notNull().default({}),
+    districts: jsonb("districts").$type<Record<string, number>>().notNull().default({}),
+    avgPrice: numeric("avg_price", { precision: 14, scale: 2 }),
+    avgRooms: integer("avg_rooms"),
+    avgArea: integer("avg_area"),
+    preferredAmenities: jsonb("preferred_amenities").$type<string[]>().notNull().default([]),
+    searchHistory: jsonb("search_history").$type<string[]>().notNull().default([]),
+    viewedPropertyIds: jsonb("viewed_property_ids").$type<string[]>().notNull().default([]),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+/* ============================================================
+   AI CHAT HISTORY  (Phase 6 — Chat Assistant)
+   Optional storage for chat sessions
+   ============================================================ */
+export const aiChatSessions = pgTable(
+  "ai_chat_sessions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    messages: jsonb("messages").$type<Array<{
+      id: string;
+      role: "user" | "assistant";
+      content: string;
+      timestamp: string;
+    }>>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_chat_sessions_user_idx").on(table.userId),
+  ]
+);
+
+export type AiAnalyticsRow = typeof aiAnalytics.$inferSelect;
+export type UserTasteProfileRow = typeof userTasteProfiles.$inferSelect;
+export type AiChatSessionRow = typeof aiChatSessions.$inferSelect;
