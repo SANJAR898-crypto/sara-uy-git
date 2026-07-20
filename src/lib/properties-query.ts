@@ -9,14 +9,10 @@ export interface PropertyFilters {
   category?: string | null;
   dealType?: string | null;
   city?: string | null;
-  district?: string | null;
   query?: string | null;
   minPrice?: number | null;
   maxPrice?: number | null;
   minRooms?: number | null;
-  maxRooms?: number | null;
-  minArea?: number | null;
-  maxArea?: number | null;
   sellerId?: number | null;
   vipOnly?: boolean;
   sort?: "newest" | "price_asc" | "price_desc" | "views";
@@ -39,15 +35,11 @@ export async function queryProperties(filters: PropertyFilters): Promise<Propert
   if (filters.category) conditions.push(eq(properties.category, filters.category));
   if (filters.dealType) conditions.push(eq(properties.dealType, filters.dealType));
   if (filters.city) conditions.push(eq(properties.city, filters.city));
-  if (filters.district) conditions.push(eq(properties.district, filters.district));
   if (filters.sellerId != null) conditions.push(eq(properties.sellerId, filters.sellerId));
   if (filters.vipOnly) conditions.push(eq(properties.isVip, true));
   if (filters.minPrice != null) conditions.push(gte(properties.price, String(filters.minPrice)));
   if (filters.maxPrice != null) conditions.push(lte(properties.price, String(filters.maxPrice)));
   if (filters.minRooms != null) conditions.push(gte(properties.rooms, filters.minRooms));
-  if (filters.maxRooms != null) conditions.push(lte(properties.rooms, filters.maxRooms));
-  if (filters.minArea != null) conditions.push(gte(properties.area, filters.minArea));
-  if (filters.maxArea != null) conditions.push(lte(properties.area, filters.maxArea));
   if (filters.query) {
     const like = `%${filters.query}%`;
     conditions.push(

@@ -1,17 +1,7 @@
-export function formatPrice(price: number, currency: string, dealType?: string) {
+export function formatPrice(price: number, currency: string, dealType: string) {
   const formatted = new Intl.NumberFormat("en-US").format(price);
   const suffix = dealType === "rent" ? "/oy" : "";
   return `${currency === "USD" ? "$" : ""}${formatted}${currency === "UZS" ? " so'm" : ""}${suffix}`;
-}
-
-export function formatPriceShort(price: number, currency: string = "USD") {
-  if (price >= 1_000_000) {
-    return `${currency === "USD" ? "$" : ""}${(price / 1_000_000).toFixed(1)}M${currency === "UZS" ? " so'm" : ""}`;
-  }
-  if (price >= 1_000) {
-    return `${currency === "USD" ? "$" : ""}${(price / 1_000).toFixed(0)}K${currency === "UZS" ? " so'm" : ""}`;
-  }
-  return `${currency === "USD" ? "$" : ""}${price}${currency === "UZS" ? " so'm" : ""}`;
 }
 
 export function timeAgo(dateInput: string | Date) {
