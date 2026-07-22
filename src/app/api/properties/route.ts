@@ -7,6 +7,8 @@ import { queryProperties } from "@/lib/properties-query";
 import { smartRankProperties } from "@/lib/ai";
 import { assertWithinListingLimits, ListingLimitError } from "@/lib/listing-service";
 import { validateListingCreate } from "@/lib/validation";
+import { evaluatePropertyWithAi } from "@/lib/ai/trust";
+import { refreshInvestmentSnapshot } from "@/lib/ai/market";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +128,19 @@ export async function POST(req: NextRequest) {
       sellerId: user.id,
     })
     .returning();
+
+  // AI Moderator + AI Fraud Detector + AI Investment Score run in the
+  // background right after a listing goes to review — best-effort, never
+  // blocks the seller's response.
+  if (!asDraft) {
+    void evaluatePropertyWithAi(created.id).catch((err) => console.error("[ai.trust] evaluation failed:", err));
+    void refreshInvestmentSnapshot(created.id, {
+      price: Number(created.price),
+      district: created.district,
+      city: created.city,
+      dealType: created.dealType,
+    }).catch((err) => console.error("[ai.market] investment snapshot failed:", err));
+  }
 
   return NextResponse.json({ property: mapProperty(created, user) }, { status: 201 });
 }

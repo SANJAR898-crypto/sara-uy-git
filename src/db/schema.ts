@@ -245,11 +245,15 @@ export const propertyEvents = pgTable(
       .references(() => properties.id, { onDelete: "cascade" }),
     // view | favorite | unfavorite | telegram | phone | message
     type: text("type").notNull(),
+    // Nullable: set when the viewer is a signed-in user so the AI Memory
+    // engine can build a per-user "recently viewed" taste profile.
+    viewerId: integer("viewer_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("property_events_property_idx").on(table.propertyId),
     index("property_events_created_idx").on(table.createdAt),
+    index("property_events_viewer_idx").on(table.viewerId),
   ]
 );
 

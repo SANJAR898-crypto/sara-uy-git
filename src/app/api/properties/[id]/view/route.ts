@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { notifications, properties } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { logPropertyEvent } from "@/lib/seller-stats";
+import { getCurrentDbUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!updated) return NextResponse.json({ views: 0 });
 
-  await logPropertyEvent(numId, "view");
+  // Best-effort: attach the viewer's user id (when signed in) so the AI
+  // Memory engine can build a "recently viewed" taste profile. Never blocks
+  // the view-count increment above if the session lookup fails.
+  const viewer = await getCurrentDbUser().catch(() => null);
+  await logPropertyEvent(numId, "view", viewer?.id ?? null);
 
   if (MILESTONES.includes(updated.views)) {
     await db.insert(notifications).values({
