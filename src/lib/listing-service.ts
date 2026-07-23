@@ -3,8 +3,6 @@ import { notifications, properties } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getPlanByKey, getSellerSubscriptionRow, reconcileExpiredSubscription } from "@/lib/subscription";
 import { mapProperty } from "@/lib/mappers";
-import { evaluatePropertyWithAi } from "@/lib/ai/trust";
-import { refreshInvestmentSnapshot } from "@/lib/ai/market";
 import type { PropertyRow, UserRow } from "@/db/schema";
 
 export type ListingAction =
@@ -149,18 +147,6 @@ export async function performListingAction(
   }
   if (action === "mark_sold") {
     await notify(seller.id, "E'lon sotilgan deb belgilandi", `"${updated.title}" tabriklaymiz!`, "system");
-  }
-
-  if (action === "submit_for_review") {
-    // AI Moderator + AI Fraud Detector + AI Investment Score — best-effort,
-    // runs in the background so the seller isn't blocked waiting for it.
-    void evaluatePropertyWithAi(updated.id).catch((err) => console.error("[ai.trust] evaluation failed:", err));
-    void refreshInvestmentSnapshot(updated.id, {
-      price: Number(updated.price),
-      district: updated.district,
-      city: updated.city,
-      dealType: updated.dealType,
-    }).catch((err) => console.error("[ai.market] investment snapshot failed:", err));
   }
 
   return updated;

@@ -184,6 +184,6 @@ export async function getListingAnalytics(propertyId: number) {
   };
 }
 
-export async function logPropertyEvent(propertyId: number, type: string, viewerId?: number | null) {
-  await db.insert(propertyEvents).values({ propertyId, type, viewerId: viewerId ?? null });
+export async function logPropertyEvent(propertyId: number, type: string) {
+  await db.insert(propertyEvents).values({ propertyId, type });
 }

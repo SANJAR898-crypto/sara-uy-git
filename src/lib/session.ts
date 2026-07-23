@@ -2,7 +2,17 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "sara_session";
-const secretValue = process.env.SESSION_SECRET ?? "sara-uylar-dev-secret-change-me";
+const FALLBACK_SECRET = "sara-uylar-dev-secret-change-me";
+const secretValue = process.env.SESSION_SECRET ?? FALLBACK_SECRET;
+
+// Never run production with the default dev secret — session cookies would
+// be forgeable by anyone who reads this open-source codebase.
+if (process.env.NODE_ENV === "production" && secretValue === FALLBACK_SECRET) {
+  console.warn(
+    "[security] SESSION_SECRET is not set — using an insecure default. Set SESSION_SECRET in the environment for production deployments."
+  );
+}
+
 const secret = new TextEncoder().encode(secretValue);
 
 export interface SessionPayload {

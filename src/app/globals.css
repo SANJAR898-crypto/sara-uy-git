@@ -102,6 +102,30 @@
   ::selection {
     background: var(--color-brand-200);
   }
+
+  /* Visible keyboard-focus ring (mouse/touch users are unaffected since we
+     only show it for :focus-visible). Keeps the app usable for anyone
+     navigating with a keyboard or screen reader outside of Telegram. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer utilities {

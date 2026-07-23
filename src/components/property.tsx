@@ -197,10 +197,12 @@ export function FavoriteButton({ property, size = "md" }: { property: Property; 
   return (
     <button
       onClick={handleClick}
+      aria-label={active ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish"}
+      aria-pressed={active}
       className={cn("relative flex items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur", dim)}
     >
       <motion.div animate={active ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}>
-        <Heart className={cn(iconDim, active ? "fill-error text-error" : "text-ink-700")} />
+        <Heart className={cn(iconDim, active ? "fill-error text-error" : "text-ink-700")} aria-hidden="true" />
       </motion.div>
       <AnimatePresence>
         {burst && (

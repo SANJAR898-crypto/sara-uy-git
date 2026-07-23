@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
-import { desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getCurrentDbUser } from "@/lib/auth";
 import { mapNotification } from "@/lib/mappers";
 
@@ -34,7 +34,13 @@ export async function PATCH(req: NextRequest) {
 
   const id = Number(body.id);
   if (Number.isFinite(id)) {
-    await db.update(notifications).set({ read: true }).where(eq(notifications.id, id));
+    // Only the notification's own recipient (or a global broadcast row,
+    // userId = null) may be marked as read — never someone else's private
+    // notification, even if its numeric ID is guessed.
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.id, id), or(eq(notifications.userId, user.id), isNull(notifications.userId))));
     return NextResponse.json({ ok: true });
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyImagesHeuristic } from "@/lib/ai";
 import { getCurrentDbUser } from "@/lib/auth";
+import { isRateLimited } from "@/lib/ai/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const user = await getCurrentDbUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (isRateLimited("ai.verify-image", user.id, 30, 60_000)) {
+    return NextResponse.json({ error: "Juda ko'p urinish. Birozdan so'ng qayta urining." }, { status: 429 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const images: string[] = Array.isArray(body.images) ? body.images.filter((i: unknown) => typeof i === "string") : [];

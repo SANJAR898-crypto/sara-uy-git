@@ -3,11 +3,16 @@ import { db } from "@/db";
 import { notifications, properties } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { logPropertyEvent } from "@/lib/seller-stats";
+import { isRateLimited } from "@/lib/ai/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const VALID_TYPES = ["telegram", "phone", "message"] as const;
 type ContactType = (typeof VALID_TYPES)[number];
+
+function clientIp(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+}
 
 /**
  * Logs a "contact" interaction (Telegram click, phone call tap, or message
@@ -23,6 +28,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   const type = String(body.type ?? "") as ContactType;
   if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: "Noto'g'ri tur" }, { status: 400 });
+
+  // Public, unauthenticated endpoint — throttle per IP+listing to stop
+  // engagement-counter spam without affecting real visitors.
+  if (isRateLimited(`contact.${numId}`, clientIp(req), 20, 60_000)) {
+    return NextResponse.json({ error: "Juda ko'p urinish. Birozdan so'ng qayta urining." }, { status: 429 });
+  }
 
   let updated;
   if (type === "telegram") {
